@@ -20,18 +20,18 @@ By the end of this week, you will be able to:
 
 Core Components:
 
-Component	          Package	                          Purpose
+Component	    |      Package	               |           Purpose
 
-Map Server	        nav2_map_server	                  Provides static map data
+Map Server	  |      nav2_map_server	       |           Provides static map data
 
-AMCL	              nav2_amcl	                        Adaptive Monte Carlo Localization
+AMCL	        |      nav2_amcl	             |           Adaptive Monte Carlo Localization
 
-Planner Server	    nav2_planner	                    Global path planning
+Planner Server	|    nav2_planner	           |           Global path planning
 
-Controller Server	  nav2_controller	                  Local trajectory planning
+Controller Server |	  nav2_controller	       |           Local trajectory planning
 
-Behavior Server	    nav2_behaviors	                  Recovery behaviors
+Behavior Server	  |  nav2_behaviors	         |           Recovery behaviors
 
-Costmap 2D	        nav2_costmap_2d	                  Obstacle representation
+Costmap 2D	      |  nav2_costmap_2d	       |           Obstacle representation
 
-Lifecycle           Manager	nav2_lifecycle_manager	  Node lifecycle management
+Lifecycle         |  Manager	nav2_lifecycle_manager	|  Node lifecycle management
