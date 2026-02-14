@@ -35,3 +35,21 @@ Behavior Server	  |  nav2_behaviors	         |           Recovery behaviors
 Costmap 2D	      |  nav2_costmap_2d	       |           Obstacle representation
 
 Lifecycle         |  Manager	nav2_lifecycle_manager	|  Node lifecycle management
+
+6.1 Costmaps Explained
+
+Costmap Layers:
+
+    Static Layer    ──►  Pre-known obstacles from map
+    Obstacle Layer  ──►  Sensor data (LiDAR, depth camera)
+    Inflation Layer ──►  Expands obstacles with cost decay
+
+Cost Values:
+
+    0      ← Free space (No obstacle)
+    1-127  ← Inflated area (Cost decreases with distance)
+    128    ← Unknown space
+    129-252 ← Lethal obstacle (Planner avoids)
+    253    ← Inscribed (Robot footprint collides)
+    254    ← Lethal (Direct collision)
+    255    ← No information
