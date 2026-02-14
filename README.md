@@ -1623,5 +1623,64 @@ Create robot_navigation/navigation/behavior_tree_demo.py:
     
     if __name__ == '__main__':
         main()
-
         
+🔍 Troubleshooting
+Issue 1: Robot Not Moving
+    
+    # Check if cmd_vel is being published
+    ros2 topic echo /cmd_vel
+    
+    # Check controller status
+    ros2 control list_controllers
+    
+    # Verify transform tree
+    ros2 run tf2_tools view_frames.py
+
+
+ Issue 2: Poor Localization
+
+    # Increase particle count in AMCL
+    ros2 param set /amcl max_particles 5000
+    
+    # Check sensor alignment
+    ros2 run tf2_ros tf2_echo base_link laser_frame
+    
+    # Reset AMCL
+    ros2 service call /reinitialize_global_localization std_srvs/Empty
+
+Issue 3: Planning Failures
+
+    # Check costmap
+    ros2 topic echo /global_costmap/costmap
+    
+    # Increase planner tolerance
+    ros2 param set /planner_server GridBased.tolerance 0.5
+    
+    # Enable unknown space exploration
+    ros2 param set /planner_server GridBased.allow_unknown True
+
+Issue 4: Map Server Issues
+
+    # Verify map file exists
+    ls -la maps/warehouse.yaml
+    
+    # Check map format
+    file maps/warehouse.pgm
+    
+    # Reload map
+    ros2 service call /map_server/load_map nav2_msgs/srv/LoadMap "{map_url: 'maps/warehouse.yaml'}"
+
+🎉 Congratulations!
+You've completed Week 6! You now know how to:
+
+✅ Setup and configure Nav2 for any robot
+
+✅ Create and use maps with SLAM
+
+✅ Tune global and local planners
+
+✅ Implement accurate localization with AMCL/EKF
+
+✅ Handle dynamic obstacles and recovery behaviors
+
+✅ Navigate using waypoints and behavior trees
