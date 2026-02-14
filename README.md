@@ -325,3 +325,408 @@ Exercise 2: Create Custom Navigation Robot
     
     </robot>
 
+2.2 Nav2 Parameters Configuration:
+
+Create config/nav2_params/navigation_params.yaml:
+
+    # Navigation2 Parameters
+    amcl:
+      ros__parameters:
+        use_sim_time: True
+        alpha1: 0.2
+        alpha2: 0.2
+        alpha3: 0.2
+        alpha4: 0.2
+        alpha5: 0.2
+        base_frame_id: "base_link"
+        beam_skip_distance: 0.5
+        beam_skip_error_threshold: 0.9
+        beam_skip_threshold: 0.3
+        do_beamskip: false
+        global_frame_id: "map"
+        lambda_short: 0.1
+        laser_likelihood_max_dist: 2.0
+        laser_max_range: 100.0
+        laser_min_range: -1.0
+        laser_model_type: "likelihood_field"
+        max_beams: 60
+        max_particles: 2000
+        min_particles: 500
+        odom_frame_id: "odom"
+        pf_err: 0.05
+        pf_z: 0.99
+        recovery_alpha_fast: 0.0
+        recovery_alpha_slow: 0.0
+        resample_interval: 1
+        robot_model_type: "differential"
+        save_pose_rate: 0.5
+        sigma_hit: 0.2
+        tf_broadcast: true
+        transform_tolerance: 1.0
+        update_min_a: 0.2
+        update_min_d: 0.25
+        z_hit: 0.5
+        z_max: 0.05
+        z_rand: 0.5
+        z_short: 0.05
+        scan_topic: /robot/scan
+
+    #Global Costmap Parameters
+    global_costmap:
+      global_costmap:
+        ros__parameters:
+          use_sim_time: True
+          global_frame: map
+          robot_base_frame: base_link
+          update_frequency: 1.0
+          publish_frequency: 1.0
+          width: 20.0
+          height: 20.0
+          resolution: 0.05
+          origin_x: -10.0
+          origin_y: -10.0
+          rolling_window: false
+          always_send_full_costmap: true
+      
+          # Layers
+          plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
+      
+          static_layer:
+            plugin: "nav2_costmap_2d::StaticLayer"
+            map_subscribe_transient_local: True
+            unknown_cost_value: 128
+            lethal_cost_threshold: 100
+      
+          obstacle_layer:
+            plugin: "nav2_costmap_2d::ObstacleLayer"
+            enabled: True
+            observation_sources: scan
+            scan:
+              topic: /robot/scan
+              max_obstacle_height: 2.0
+              clearing: True
+              marking: True
+              data_type: "LaserScan"
+              raytrace_max_range: 3.0
+              raytrace_min_range: 0.0
+              obstacle_max_range: 2.5
+              obstacle_min_range: 0.0
+      
+          inflation_layer:
+            plugin: "nav2_costmap_2d::InflationLayer"
+            cost_scaling_factor: 3.0
+            inflation_radius: 0.55
+      
+          # Footprint
+          footprint: "[[-0.25, -0.2], [-0.25, 0.2], [0.25, 0.2], [0.25, -0.2]]"
+          footprint_padding: 0.01
+      
+          # Filters
+          keepout_filter:
+            plugin: "nav2_costmap_2d::KeepoutFilter"
+            enabled: False
+      
+          speed_filter:
+            plugin: "nav2_costmap_2d::SpeedFilter"
+            enabled: False
+
+    # Local Costmap Parameters
+    local_costmap:
+      local_costmap:
+        ros__parameters:
+          use_sim_time: True
+          global_frame: odom
+          robot_base_frame: base_link
+          update_frequency: 5.0
+          publish_frequency: 2.0
+          width: 3.0
+          height: 3.0
+          resolution: 0.05
+          origin_x: -1.5
+          origin_y: -1.5
+          rolling_window: true
+      
+          plugins: ["voxel_layer", "inflation_layer"]
+      
+          voxel_layer:
+            plugin: "nav2_costmap_2d::VoxelLayer"
+            enabled: True
+            publish_voxel: False
+            origin_z: 0.0
+            z_resolution: 0.2
+            z_voxels: 2
+            max_obstacle_height: 2.0
+            mark_threshold: 0
+            observation_sources: scan
+            scan:
+              topic: /robot/scan
+              max_obstacle_height: 2.0
+              clearing: True
+              marking: True
+              data_type: "LaserScan"
+              raytrace_max_range: 3.0
+              raytrace_min_range: 0.0
+              obstacle_max_range: 2.5
+              obstacle_min_range: 0.0
+      
+          inflation_layer:
+            plugin: "nav2_costmap_2d::InflationLayer"
+            cost_scaling_factor: 3.0
+            inflation_radius: 0.55
+      
+          footprint: "[[-0.25, -0.2], [-0.25, 0.2], [0.25, 0.2], [0.25, -0.2]]"
+          footprint_padding: 0.01
+          transform_tolerance: 0.2
+
+    # Global Planner
+    planner_server:
+      ros__parameters:
+        use_sim_time: True
+        planner_plugins: ['GridBased']
+    
+        GridBased:
+          plugin: "nav2_navfn_planner/NavfnPlanner"
+          tolerance: 0.5
+          use_astar: true
+          allow_unknown: true
+    
+        # Alternative: Smac Planner for 2D
+        SmacPlanner2D:
+          plugin: "nav2_smac_planner/SmacPlanner2D"
+          tolerance: 0.25
+          downsample_costmap: true
+          downsampling_factor: 1
+          allow_unknown: false
+          max_iterations: 1000000
+          max_on_approach_iterations: 1000
+          terminal_checking_interval: 100
+          use_final_approach_orientation: false
+          motion_model_for_search: "MOORE"
+
+    # Local Controller
+    controller_server:
+      ros__parameters:
+        use_sim_time: True
+        controller_frequency: 20.0
+        min_x_velocity_threshold: 0.001
+        min_y_velocity_threshold: 0.5
+        min_theta_velocity_threshold: 0.001
+        progress_checker_plugin: "progress_checker"
+        goal_checker_plugin: "general_goal_checker"
+        controller_plugins: ["FollowPath"]
+    
+        # Progress checker
+        progress_checker:
+          plugin: "nav2_controller::SimpleProgressChecker"
+          required_movement_radius: 0.5
+          movement_time_allowance: 10.0
+    
+        # Goal checker
+        general_goal_checker:
+          plugin: "nav2_controller::SimpleGoalChecker"
+          xy_goal_tolerance: 0.25
+          yaw_goal_tolerance: 0.25
+          stateful: True
+    
+        # Controller
+        FollowPath:
+          plugin: "nav2_regulated_pure_pursuit_controller/RegulatedPurePursuitController"
+          desired_linear_vel: 0.5
+          lookahead_dist: 0.6
+          min_lookahead_dist: 0.3
+          max_lookahead_dist: 0.9
+          lookahead_time: 1.5
+          rotate_to_heading_min_angle: 0.785
+          rotate_to_heading_angular_vel: 1.8
+          transform_tolerance: 0.2
+          use_velocity_scaled_lookahead_dist: true
+          min_approach_linear_velocity: 0.05
+          approach_velocity_scaling_dist: 0.6
+          max_allowed_time_to_collision_up_to_carrot: 1.0
+          regulated_linear_scaling_min_radius: 0.9
+          regulated_linear_scaling_min_speed: 0.25
+          use_fixed_curvature_lookahead: false
+          use_rotate_to_heading: true
+          use_interpolation: true
+          use_cost_regulated_linear_velocity_scaling: true
+          cost_scaling_dist: 1.0
+          cost_scaling_gain: 1.0
+          inflation_cost_scaling_factor: 3.0
+
+    # Behavior Server (Recovery Behaviors)
+    behavior_server:
+      ros__parameters:
+        use_sim_time: True
+        behavior_plugins: ["spin", "backup", "wait"]
+    
+        spin:
+          plugin: "nav2_behaviors/Spin"
+          simulate_ahead_time: 2.0
+          max_rotational_vel: 1.0
+          min_rotational_vel: 0.2
+          rotational_acc_lim: 3.2
+    
+        backup:
+          plugin: "nav2_behaviors/BackUp"
+          simulate_ahead_time: 2.0
+          max_linear_vel: 0.5
+          min_linear_vel: 0.1
+          linear_acc_lim: 2.5
+    
+        wait:
+          plugin: "nav2_behaviors/Wait"
+          wait_duration: 5.0
+    
+        local_costmap_topic: local_costmap/costmap_raw
+        local_footprint_topic: local_costmap/footprint
+        global_costmap_topic: global_costmap/costmap_raw
+        global_footprint_topic: global_costmap/footprint
+        cycle_frequency: 10.0
+
+    # Velocity Smoother
+    velocity_smoother:
+      ros__parameters:
+        use_sim_time: True
+        smoothing_frequency: 20.0
+        scale_velocities: False
+        feedback: "OPEN_LOOP"
+    
+        max_velocity: [0.5, 0.0, 1.8]
+        min_velocity: [-0.3, 0.0, -1.8]
+    
+        max_accel: [2.5, 0.0, 3.2]
+        max_decel: [2.5, 0.0, 3.2]
+    
+        odom_topic: /robot/odom
+
+    # Waypoint Follower
+    waypoint_follower:
+      ros__parameters:
+        use_sim_time: True
+        loop_rate: 20
+        stop_on_failure: true
+        waypoint_task_executor_plugin: "wait_at_waypoint"
+        wait_at_waypoint:
+          plugin: "nav2_waypoint_follower::WaitAtWaypoint"
+          enabled: True
+          waypoint_pause_duration: 2.0
+
+    # BT Navigator
+    bt_navigator:
+      ros__parameters:
+        use_sim_time: True
+        global_frame: map
+        robot_base_frame: base_link
+        odom_topic: /robot/odom
+        bt_loop_duration: 10
+        default_server_timeout: 20
+        enable_groot_monitoring: True
+        groot_zmq_publisher_port: 1666
+        groot_zmq_server_port: 1667
+        plugin_lib_names:
+        - nav2_compute_path_to_pose_action_bt_node
+        - nav2_follow_path_action_bt_node
+        - nav2_back_up_action_bt_node
+        - nav2_spin_action_bt_node
+        - nav2_wait_action_bt_node
+        - nav2_clear_costmap_service_bt_node
+        - nav2_is_stuck_condition_bt_node
+        - nav2_goal_reached_condition_bt_node
+        - nav2_initial_pose_received_condition_bt_node
+        - nav2_reinitialize_global_localization_service_bt_node
+        - nav2_rate_controller_bt_node
+        - nav2_distance_controller_bt_node
+        - nav2_speed_controller_bt_node
+        - nav2_truncate_path_action_bt_node
+        - nav2_goal_updater_node_bt_node
+        - nav2_recovery_node_bt_node
+        - nav2_pipeline_sequence_bt_node
+        - nav2_round_robin_node_bt_node
+        - nav2_transform_available_condition_bt_node
+        - nav2_time_expired_condition_bt_node
+        - nav2_path_expiring_timer_condition
+        - nav2_distance_traveled_condition_bt_node
+
+    # Lifecycle Manager
+    nav2_lifecycle_manager:
+      ros__parameters:
+        use_sim_time: True
+        autostart: True
+        node_names:
+          - amcl
+          - map_server
+          - planner_server
+          - controller_server
+          - behavior_server
+          - bt_navigator
+          - velocity_smoother
+          - waypoint_follower
+
+2.3 Robot Localization Configuration (EKF):
+
+Create config/localization/ekf.yaml:
+
+    #Extended Kalman Filter for sensor fusion
+    ekf_filter_node:
+      ros__parameters:
+        use_sim_time: True
+    
+    # Frequency
+        frequency: 30.0
+    
+    # Sensor timeout
+        sensor_timeout: 0.1
+    
+    # 2D mode
+        two_d_mode: True
+    
+    # Publish TF
+        publish_tf: True
+        map_frame: map
+        odom_frame: odom
+        base_link_frame: base_link
+        world_frame: odom
+    
+    # Odometry sensor
+        odom0: /robot/odom
+        odom0_config: [true, true, true,
+                       false, false, true,
+                       false, false, false,
+                       false, false, false,
+                       false, false, false]
+        odom0_queue_size: 10
+        odom0_nodelay: true
+        odom0_differential: false
+        odom0_relative: false
+    
+    # IMU sensor
+        imu0: /robot/imu
+        imu0_config: [false, false, false,
+                      true, true, true,
+                      false, false, false,
+                      false, false, true,
+                      true, true, true]
+        imu0_queue_size: 10
+        imu0_nodelay: true
+        imu0_differential: false
+        imu0_relative: true
+        imu0_remove_gravitational_acceleration: true
+    
+        # Process noise covariance
+        process_noise_covariance: [0.05, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                   0.0, 0.05, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                   0.0, 0.0, 0.06, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                   0.0, 0.0, 0.0, 0.03, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                   0.0, 0.0, 0.0, 0.0, 0.03, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                   0.0, 0.0, 0.0, 0.0, 0.0, 0.06, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                   0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                   0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                   0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                   0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                   0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.0,
+                                   0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.02, 0.0, 0.0, 0.0,
+                                   0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0,
+                                   0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.01, 0.0,
+                                   0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.02]
+
+    
