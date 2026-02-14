@@ -1058,3 +1058,119 @@ Create config/slam/slam_toolbox.yaml:
         minimum_angle_penalty: 0.9
         minimum_distance_penalty: 0.5
         use_response_expansion: true
+
+3.2 SLAM Launch File:
+
+Create launch/slam/slam_toolbox.launch.py:
+
+    from launch import LaunchDescription
+    from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+    from launch.conditions import IfCondition
+    from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+    from launch.launch_description_sources import PythonLaunchDescriptionSource
+    from launch_ros.actions import Node
+    from launch_ros.substitutions import FindPackageShare
+    
+    def generate_launch_description():
+        pkg_navigation = FindPackageShare('robot_navigation')
+    
+        # Launch configurations
+        use_sim_time = LaunchConfiguration('use_sim_time', default='True')
+        slam_mode = LaunchConfiguration('slam_mode', default='mapping')
+        map_file_name = LaunchConfiguration('map_file_name', default='')
+        
+        # Declare arguments
+        declare_use_sim_time_cmd = DeclareLaunchArgument(
+            'use_sim_time',
+            default_value='True',
+            description='Use simulation time'
+        )
+        
+        declare_slam_mode_cmd = DeclareLaunchArgument(
+            'slam_mode',
+            default_value='mapping',
+            description='SLAM mode: mapping or localization'
+        )
+        
+        declare_map_file_name_cmd = DeclareLaunchArgument(
+            'map_file_name',
+            default_value='',
+            description='Map file name for localization mode'
+        )
+        
+        # SLAM Toolbox node
+        slam_toolbox_node = Node(
+            package='slam_toolbox',
+            executable='async_slam_toolbox_node',
+            name='slam_toolbox',
+            output='screen',
+            parameters=[
+                PathJoinSubstitution([pkg_navigation, 'config', 'slam', 'slam_toolbox.yaml']),
+                {'use_sim_time': use_sim_time,
+                 'mode': slam_mode}
+            ],
+            remappings=[
+                ('/scan', '/robot/scan'),
+                ('/map', '/robot/map')
+            ]
+        )
+        
+        # Map server for saving maps
+        map_saver_server = Node(
+            package='nav2_map_server',
+            executable='map_saver_server',
+            name='map_saver',
+            output='screen',
+            parameters=[{'save_map_timeout': 5.0,
+                         'free_thresh_default': 0.25,
+                         'occupied_thresh_default': 0.65,
+                         'map_subscribe_transient_local': True}]
+        )
+        
+        # Lifecycle manager for map saver
+        lifecycle_manager_map_saver = Node(
+            package='nav2_lifecycle_manager',
+            executable='lifecycle_manager',
+            name='lifecycle_manager_map_saver',
+            output='screen',
+            parameters=[{'use_sim_time': use_sim_time,
+                         'autostart': True,
+                         'node_names': ['map_saver']}]
+        )
+        
+        return LaunchDescription([
+            declare_use_sim_time_cmd,
+            declare_slam_mode_cmd,
+            declare_map_file_name_cmd,
+            slam_toolbox_node,
+            map_saver_server,
+            lifecycle_manager_map_saver
+        ])
+3.3 Run SLAM Mapping:
+
+    #Terminal 1: Start robot in Gazebo
+    ros2 launch gazebo_simulation spawn_robot.launch.py world:=maze.sdf
+    
+    # Terminal 2: Start SLAM mapping
+    ros2 launch robot_navigation slam_toolbox.launch.py slam_mode:=mapping
+    
+    # Terminal 3: Start teleop to explore environment
+    ros2 run teleop_twist_keyboard teleop_twist_keyboard \
+        --ros-args --remap cmd_vel:=/robot/cmd_vel
+    
+    # Terminal 4: Save map after exploration
+    ros2 service call /map_saver/save_map nav2_msgs/srv/SaveMap "map_topic: /robot/map"
+    
+    # The map will be saved as map.yaml and map.pgm
+    
+3.4 Run SLAM Localization with Pre-built Map:
+
+    # Copy saved map to package
+    cp ~/ros2_ws/map.yaml ~/ros2_ws/src/robot_navigation/maps/maze/
+    cp ~/ros2_ws/map.pgm ~/ros2_ws/src/robot_navigation/maps/maze/
+    
+    # Start localization mode
+    ros2 launch robot_navigation slam_toolbox.launch.py \
+        slam_mode:=localization \
+        map_file_name:=maze.yaml
+
