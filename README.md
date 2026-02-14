@@ -243,3 +243,85 @@ Exercise 1: Basic Nav2 Setup with TurtleBot3
 Exercise 2: Create Custom Navigation Robot
 2.1 Create Robot Description with Nav2 Configuration:
 
+    Create urdf/navigation_robot.urdf.xacro:
+
+    <?xml version="1.0"?>
+    <robot name="navigation_robot" xmlns:xacro="http://www.ros.org/wiki/xacro">
+    
+        <!-- Include base robot description -->
+        <xacro:include filename="$(find gazebo_simulation)/urdf/simple_robot.urdf.xacro"/>
+    
+        <!-- Add navigation-specific components -->
+    
+        <!-- Additional IMU for better localization -->
+        <link name="nav_imu_link">
+            <visual>
+                <geometry>
+                    <box size="0.03 0.03 0.02"/>
+                </geometry>
+                <material name="blue"/>
+            </visual>
+        </link>
+    
+        <joint name="nav_imu_joint" type="fixed">
+            <parent link="base_link"/>
+            <child link="nav_imu_link"/>
+            <origin xyz="0 0 0.1" rpy="0 0 0"/>
+        </joint>
+    
+        <!-- GPS antenna (simulated) -->
+        <link name="gps_antenna">
+            <visual>
+                <geometry>
+                    <sphere radius="0.02"/>
+                </geometry>
+                <material name="red"/>
+            </visual>
+        </link>
+    
+        <joint name="gps_joint" type="fixed">
+            <parent link="base_link"/>
+            <child link="gps_antenna"/>
+            <origin xyz="0.1 0 0.15"/>
+        </joint>
+    
+        <!-- Gazebo plugins for navigation -->
+        <gazebo>
+            <!-- IMU plugin -->
+            <plugin name="gazebo_ros_imu" filename="libgazebo_ros_imu.so">
+                <ros>
+                    <namespace>/robot</namespace>
+                    <argument>imu:=imu</argument>
+                </ros>
+                <update_rate>50</update_rate>
+                <topic_name>imu</topic_name>
+                <frame_name>nav_imu_link</frame_name>
+                <xyz_offset>0 0 0</xyz_offset>
+                <rpy_offset>0 0 0</rpy_offset>
+            </plugin>
+        
+            <!-- Differential drive plugin with odometry -->
+            <plugin name="differential_drive_controller" 
+                    filename="libgazebo_ros_diff_drive.so">
+                <ros>
+                    <namespace>/robot</namespace>
+                </ros>
+                <update_rate>50</update_rate>
+                <left_joint>left_wheel_joint</left_joint>
+                <right_joint>right_wheel_joint</right_joint>
+                <wheel_separation>0.4</wheel_separation>
+                <wheel_diameter>0.2</wheel_diameter>
+                <max_wheel_torque>20</max_wheel_torque>
+                <max_wheel_acceleration>1.0</max_wheel_acceleration>
+                <command_topic>cmd_vel</command_topic>
+                <odometry_topic>odom</odometry_topic>
+                <odometry_frame>odom</odometry_frame>
+                <robot_base_frame>base_link</robot_base_frame>
+                <publish_odom>true</publish_odom>
+                <publish_odom_tf>true</publish_odom_tf>
+                <publish_wheel_tf>true</publish_wheel_tf>
+            </plugin>
+        </gazebo>
+    
+    </robot>
+
