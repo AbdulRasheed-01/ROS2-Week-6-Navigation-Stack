@@ -1173,4 +1173,455 @@ Create launch/slam/slam_toolbox.launch.py:
     ros2 launch robot_navigation slam_toolbox.launch.py \
         slam_mode:=localization \
         map_file_name:=maze.yaml
+Exercise 4: Advanced Navigation Features
 
+4.1 Waypoint Navigation:
+
+Create config/waypoints/warehouse_waypoints.yaml:
+
+    waypoints:
+      - name: "charging_station"
+        position:
+          x: -12.0
+          y: 12.0
+        orientation:
+          w: 1.0
+        pause_duration: 5.0
+      
+      - name: "shelf_a1"
+        position:
+          x: -8.0
+          y: -8.0
+        orientation:
+          w: 1.0
+        pause_duration: 2.0
+      
+      - name: "shelf_b2"
+        position:
+          x: -5.0
+          y: -8.0
+        orientation:
+          w: 1.0
+        pause_duration: 2.0
+      
+      - name: "loading_dock"
+        position:
+          x: 12.0
+          y: -10.0
+        orientation:
+          w: 1.0
+        pause_duration: 10.0
+      
+      - name: "inspection_area"
+        position:
+          x: 0.0
+          y: 0.0
+        orientation:
+          w: 1.0
+        pause_duration: 3.0
+    
+4.2 Waypoint Follower Node:
+
+Create robot_navigation/navigation/waypoint_navigator.py:
+
+    #!/usr/bin/env python3
+    import rclpy
+    from rclpy.node import Node
+    from nav2_msgs.action import NavigateToPose
+    from nav2_msgs.action import FollowWaypoints
+    from geometry_msgs.msg import PoseStamped
+    from std_msgs.msg import String
+    import yaml
+    import math
+    
+    class WaypointNavigator(Node):
+        def __init__(self):
+            super().__init__('waypoint_navigator')
+            
+            # Load waypoints
+            self.waypoints = self.load_waypoints()
+            self.current_waypoint_index = 0
+            
+            # Action client for waypoint following
+            self.waypoint_client = self.create_action_client(
+                FollowWaypoints, 'follow_waypoints')
+            
+            # Publishers
+            self.status_pub = self.create_publisher(
+                String, '/navigation/status', 10)
+            
+            # Timer for navigation
+            self.create_timer(2.0, self.check_status)
+            
+            self.get_logger().info("Waypoint Navigator started")
+        
+        def load_waypoints(self):
+            """Load waypoints from YAML file"""
+            try:
+                with open('config/waypoints/warehouse_waypoints.yaml', 'r') as f:
+                    data = yaml.safe_load(f)
+                    return data['waypoints']
+            except Exception as e:
+                self.get_logger().error(f"Failed to load waypoints: {e}")
+                return []
+        
+        def create_pose_stamped(self, waypoint):
+            """Create PoseStamped from waypoint data"""
+            pose = PoseStamped()
+            pose.header.frame_id = 'map'
+            pose.header.stamp = self.get_clock().now().to_msg()
+            
+            pose.pose.position.x = waypoint['position']['x']
+            pose.pose.position.y = waypoint['position']['y']
+            pose.pose.position.z = 0.0
+            
+            pose.pose.orientation.x = 0.0
+            pose.pose.orientation.y = 0.0
+            pose.pose.orientation.z = waypoint.get('orientation', {}).get('z', 0.0)
+            pose.pose.orientation.w = waypoint.get('orientation', {}).get('w', 1.0)
+            
+            return pose
+        
+        def start_waypoint_following(self):
+            """Start following waypoints"""
+            if not self.waypoints:
+                self.get_logger().error("No waypoints loaded")
+                return
+            
+            # Create goal
+            goal_msg = FollowWaypoints.Goal()
+            
+            # Add all waypoints
+            for wp in self.waypoints:
+                pose = self.create_pose_stamped(wp)
+                goal_msg.poses.append(pose)
+            
+            # Send goal
+            self.get_logger().info(f"Sending {len(goal_msg.poses)} waypoints...")
+            
+            future = self.waypoint_client.send_goal_async(
+                goal_msg,
+                feedback_callback=self.feedback_callback
+            )
+            
+            future.add_done_callback(self.goal_response_callback)
+        
+        def goal_response_callback(self, future):
+            goal_handle = future.result()
+            
+            if not goal_handle.accepted:
+                self.get_logger().error('Waypoint goal rejected')
+                self.publish_status('REJECTED')
+                return
+            
+            self.get_logger().info('Waypoint goal accepted')
+            self.publish_status('NAVIGATING')
+            
+            # Get result
+            result_future = goal_handle.get_result_async()
+            result_future.add_done_callback(self.result_callback)
+        
+        def feedback_callback(self, feedback_msg):
+            feedback = feedback_msg.feedback
+            self.get_logger().info(
+                f'Current waypoint: {feedback.current_waypoint}',
+                throttle_duration_sec=2.0
+            )
+            
+            # Publish status
+            self.publish_status(f'WP_{feedback.current_waypoint}')
+        
+        def result_callback(self, future):
+            result = future.result().result
+            self.get_logger().info(f'Waypoint navigation result: {result}')
+            
+            if result == FollowWaypoints.Result.SUCCESS:
+                self.publish_status('COMPLETED')
+                self.get_logger().info('All waypoints completed!')
+            else:
+                self.publish_status('FAILED')
+        
+        def publish_status(self, status):
+            msg = String()
+            msg.data = status
+            self.status_pub.publish(msg)
+        
+        def check_status(self):
+            """Periodic status check"""
+            if not self.waypoint_client.server_is_ready():
+                self.get_logger().warn("Waypoint server not available")
+    
+    def main(args=None):
+        rclpy.init(args=args)
+        node = WaypointNavigator()
+        
+        # Start navigation after 3 seconds
+        node.create_timer(3.0, node.start_waypoint_following)
+        
+        try:
+            rclpy.spin(node)
+        except KeyboardInterrupt:
+            pass
+        
+        node.destroy_node()
+        rclpy.shutdown()
+    
+    if __name__ == '__main__':
+        main()
+
+4.3 Dynamic Obstacle Avoidance:
+
+Create robot_navigation/navigation/dynamic_obstacle_demo.py:
+
+    #!/usr/bin/env python3
+    import rclpy
+    from rclpy.node import Node
+    from gazebo_msgs.srv import SpawnEntity
+    from geometry_msgs.msg import Pose, Twist
+    from nav2_msgs.action import NavigateToPose
+    import random
+    import math
+    
+    class DynamicObstacleDemo(Node):
+        def __init__(self):
+            super().__init__('dynamic_obstacle_demo')
+            
+            # Client for spawning obstacles
+            self.spawn_client = self.create_client(SpawnEntity, '/spawn_entity')
+            
+            # Timer for spawning moving obstacles
+            self.create_timer(10.0, self.spawn_obstacle)
+            
+            # Robot's navigation goal
+            self.robot_goal = None
+            
+            self.get_logger().info("Dynamic Obstacle Demo started")
+        
+        def spawn_obstacle(self):
+            """Spawn a moving obstacle"""
+            request = SpawnEntity.Request()
+            
+            # Random position
+            x = random.uniform(-5, 5)
+            y = random.uniform(-5, 5)
+            
+            # Create SDF for moving sphere
+            request.xml = f'''<?xml version="1.0" ?>
+            <sdf version="1.6">
+                <model name="moving_obstacle_{random.randint(1000, 9999)}">
+                    <pose>{x} {y} 0.3 0 0 0</pose>
+                    <link name="link">
+                        <collision name="collision">
+                            <geometry>
+                                <sphere radius="0.2"/>
+                            </geometry>
+                        </collision>
+                        <visual name="visual">
+                            <geometry>
+                                <sphere radius="0.2"/>
+                            </geometry>
+                            <material>
+                                <ambient>1 0 0 1</ambient>
+                                <diffuse>0.8 0 0 1</diffuse>
+                            </material>
+                        </visual>
+                    </link>
+                    <plugin name="move_sphere" filename="libmove_sphere.so">
+                        <velocity>{random.uniform(0.2, 0.5)}</velocity>
+                        <direction>{random.uniform(0, 6.28)}</direction>
+                    </plugin>
+                </model>
+            </sdf>'''
+            
+            future = self.spawn_client.call_async(request)
+            future.add_done_callback(self.spawn_callback)
+        
+        def spawn_callback(self, future):
+            try:
+                response = future.result()
+                if response.success:
+                    self.get_logger().info("Obstacle spawned")
+                else:
+                    self.get_logger().error("Failed to spawn obstacle")
+            except Exception as e:
+                self.get_logger().error(f"Service call failed: {e}")
+        
+        def send_navigation_goal(self, x, y):
+            """Send navigation goal to robot"""
+            goal_msg = NavigateToPose.Goal()
+            goal_msg.pose.header.frame_id = 'map'
+            goal_msg.pose.header.stamp = self.get_clock().now().to_msg()
+            goal_msg.pose.pose.position.x = x
+            goal_msg.pose.pose.position.y = y
+            goal_msg.pose.pose.orientation.w = 1.0
+            
+            # This would send the goal to Nav2
+            self.get_logger().info(f"Sending goal: ({x}, {y})")
+    
+    def main(args=None):
+        rclpy.init(args=args)
+        node = DynamicObstacleDemo()
+        
+        # Send robot to goal
+        node.create_timer(2.0, lambda: node.send_navigation_goal(8.0, 8.0))
+        
+        try:
+            rclpy.spin(node)
+        except KeyboardInterrupt:
+            pass
+        
+        node.destroy_node()
+        rclpy.shutdown()
+    
+    if __name__ == '__main__':
+        main()
+Exercise 5: Behavior Trees for Navigation
+
+5.1 Custom Behavior Tree XML:
+
+Create behavior_trees/custom/navigate_with_recovery.xml:
+
+    <?xml version="1.0"?>
+    <root BTCPP_format="4" main_tree_to_execute="MainTree">
+        <BehaviorTree ID="MainTree">
+            <Sequence name="root_sequence">
+                <!-- Check if initial pose is set -->
+                <Condition ID="InitialPoseReceived"/>
+                
+                <!-- Compute path to goal -->
+                <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased"/>
+                
+                <!-- Follow path with recovery options -->
+                <RecoveryNode number_of_retries="3" name="FollowPathRecovery">
+                    <Sequence>
+                        <FollowPath path="{path}" controller_id="FollowPath"/>
+                        <Condition ID="GoalReached"/>
+                    </Sequence>
+                    <Sequence>
+                        <ClearCostmap name="clear_global_costmap" service_name="global_costmap/clear_entirely_global_costmap"/>
+                        <ClearCostmap name="clear_local_costmap" service_name="local_costmap/clear_entirely_local_costmap"/>
+                        <Spin spin_dist="1.57"/>
+                        <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased"/>
+                    </Sequence>
+                </RecoveryNode>
+                
+                <!-- Return success -->
+                <ForceSuccess>
+                    <AlwaysSuccess/>
+                </ForceSuccess>
+            </Sequence>
+        </BehaviorTree>
+        
+        <!-- Tree Nodes -->
+        <TreeNodesModel>
+            <Action ID="ComputePathToPose">
+                <input_port name="goal">Destination pose</input_port>
+                <output_port name="path">Created path</output_port>
+                <input_port name="planner_id">Planner implementation</input_port>
+            </Action>
+            <Action ID="FollowPath">
+                <input_port name="path">Path to follow</input_port>
+                <input_port name="controller_id">Controller implementation</input_port>
+            </Action>
+            <Condition ID="GoalReached"/>
+            <Condition ID="InitialPoseReceived"/>
+            <Action ID="ClearCostmap">
+                <input_port name="service_name">Costmap service</input_port>
+            </Action>
+            <Action ID="Spin">
+                <input_port name="spin_dist">Spin distance</input_port>
+            </Action>
+        </TreeNodesModel>
+    </root>
+5.2 Behavior Tree Publisher:
+
+Create robot_navigation/navigation/behavior_tree_demo.py:
+
+    #!/usr/bin/env python3
+    import rclpy
+    from rclpy.node import Node
+    from nav2_msgs.action import NavigateToPose
+    from geometry_msgs.msg import PoseStamped
+    from std_msgs.msg import String
+    import py_trees
+    import py_trees_ros
+    
+    class BehaviorTreeNavigator(Node):
+        def __init__(self):
+            super().__init__('behavior_tree_navigator')
+            
+            # Create behavior tree
+            self.create_behavior_tree()
+            
+            # Timer for tree tick
+            self.create_timer(0.1, self.tick_tree)
+            
+            self.get_logger().info("Behavior Tree Navigator started")
+        
+        def create_behavior_tree(self):
+            """Create a simple behavior tree for navigation"""
+            
+            # Create root sequence
+            root = py_trees.composites.Sequence("Root", memory=True)
+            
+            # Check if initial pose is set
+            check_initial_pose = py_trees_ros.conditions.InitialPoseReceived(
+                "Check Initial Pose"
+            )
+            
+            # Compute path to goal
+            compute_path = py_trees_ros.actions.ComputePathToPose(
+                "Compute Path",
+                topic_name="/compute_path",
+                action_name="compute_path_to_pose"
+            )
+            
+            # Follow path
+            follow_path = py_trees_ros.actions.FollowPath(
+                "Follow Path",
+                topic_name="/follow_path",
+                action_name="follow_path"
+            )
+            
+            # Check if goal reached
+            check_goal = py_trees_ros.conditions.GoalReached(
+                "Goal Reached"
+            )
+            
+            # Add to sequence
+            root.add_children([check_initial_pose, compute_path, follow_path, check_goal])
+            
+            # Create tree
+            self.tree = py_trees_ros.trees.BehaviourTree(root)
+            
+            # Setup tree
+            self.tree.setup(timeout=30.0)
+        
+        def tick_tree(self):
+            """Tick the behavior tree"""
+            self.tree.tick()
+            
+            # Log tree status
+            if self.tree.root.status == py_trees.common.Status.RUNNING:
+                self.get_logger().info("Tree running...", throttle_duration_sec=2.0)
+            elif self.tree.root.status == py_trees.common.Status.SUCCESS:
+                self.get_logger().info("Navigation successful!")
+            elif self.tree.root.status == py_trees.common.Status.FAILURE:
+                self.get_logger().error("Navigation failed!")
+    
+    def main(args=None):
+        rclpy.init(args=args)
+        node = BehaviorTreeNavigator()
+        
+        try:
+            rclpy.spin(node)
+        except KeyboardInterrupt:
+            pass
+        
+        node.destroy_node()
+        rclpy.shutdown()
+    
+    if __name__ == '__main__':
+        main()
+
+        
