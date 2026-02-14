@@ -72,3 +72,100 @@ TEB	Local	 |              Car-like robots	    |        Time-optimal,        |   
 
 Regulated Pure Pursuit |    Local	            |        General purpose	  |      Stable, simple	|    Less optimal
 
+
+6.3 Localization Methods
+
+AMCL (Adaptive Monte Carlo Localization):
+
+Particle filter-based localization
+
+Adapts number of particles
+
+Handles global localization and tracking
+
+Requires known map
+
+Robot Localization (EKF/UKF):
+
+Sensor fusion (IMU + Odometry + GPS)
+
+Continuous pose estimation
+
+No map required
+
+Better for smooth tracking
+
+⚙️ Setup and Installation
+Step 1: Install Nav2 Packages
+
+    #Install Nav2 core packages
+    sudo apt-get install ros-humble-nav2-bringup
+    sudo apt-get install ros-humble-nav2-common
+    sudo apt-get install ros-humble-nav2-amcl
+    sudo apt-get install ros-humble-nav2-behavior-tree
+    sudo apt-get install ros-humble-nav2-behaviors
+    sudo apt-get install ros-humble-nav2-bt-navigator
+    sudo apt-get install ros-humble-nav2-controller
+    sudo apt-get install ros-humble-nav2-core
+    sudo apt-get install ros-humble-nav2-costmap-2d
+    sudo apt-get install ros-humble-nav2-lifecycle-manager
+    sudo apt-get install ros-humble-nav2-map-server
+    sudo apt-get install ros-humble-nav2-navfn-planner
+    sudo apt-get install ros-humble-nav2-planner
+    sudo apt-get install ros-humble-nav2-regulated-pure-pursuit-controller
+    sudo apt-get install ros-humble-nav2-rotation-shim-controller
+    sudo apt-get install ros-humble-nav2-rviz-plugins
+    sudo apt-get install ros-humble-nav2-smac-planner
+    sudo apt-get install ros-humble-nav2-velocity-smoother
+    sudo apt-get install ros-humble-nav2-voxel-grid
+
+    #Install SLAM packages
+    sudo apt-get install ros-humble-slam-toolbox
+    sudo apt-get install ros-humble-slam-toolbox-msgs
+    sudo apt-get install ros-humble-cartographer
+    sudo apt-get install ros-humble-cartographer-ros
+
+    #Install localization packages
+    sudo apt-get install ros-humble-robot-localization
+    sudo apt-get install ros-humble-tf2-* 
+    sudo apt-get install ros-humble-imu-filter-madgwick
+
+    #Install navigation tutorials
+    sudo apt-get install ros-humble-navigation2
+    sudo apt-get install ros-humble-nav2-minimal-tb3
+    sudo apt-get install ros-humble-nav2-minimal-tb4
+
+Step 2: Create Navigation Package
+
+    cd ~/ros2_ws/src
+    ros2 pkg create robot_navigation --build-type ament_python \
+        --dependencies rclpy rclcpp nav2_msgs nav2_util nav2_amcl \
+                     nav2_lifecycle_manager nav2_map_server \
+                     nav2_planner nav2_controller nav2_costmap_2d \
+                     nav2_navfn_planner nav2_smac_planner \
+                     nav2_regulated_pure_pursuit_controller \
+                     slam_toolbox robot_localization tf2_ros \
+        --description "Week 6: ROS 2 Navigation Stack"
+
+    cd robot_navigation
+    mkdir -p robot_navigation/{maps,params,launch,config,behavior_trees}
+    mkdir -p config/{nav2_params,navigation,localization}
+    mkdir -p maps/{warehouse,office,maze,lab}
+    mkdir -p launch/navigation
+    mkdir -p behavior_trees/custom
+
+🔧 Practical Exercises
+
+Exercise 1: Basic Nav2 Setup with TurtleBot3
+
+1.1 Install TurtleBot3 Simulation:
+
+# Install TurtleBot3 packages
+sudo apt-get install ros-humble-turtlebot3-gazebo
+sudo apt-get install ros-humble-turtlebot3-navigation2
+sudo apt-get install ros-humble-turtlebot3-cartographer
+sudo apt-get install ros-humble-turtlebot3-teleop
+
+# Set TurtleBot3 model
+echo "export TURTLEBOT3_MODEL=burger" >> ~/.bashrc
+source ~/.bashrc
