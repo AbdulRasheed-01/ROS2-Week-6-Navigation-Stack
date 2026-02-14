@@ -928,4 +928,61 @@ Create launch/navigation/navigation_stack.launch.py:
         ])
     
 2.5 Integration with Gazebo:
+Create launch/navigation/navigation_gazebo.launch.py:
 
+    from launch import LaunchDescription
+    from launch.actions import IncludeLaunchDescription, TimerAction
+    from launch.launch_description_sources import PythonLaunchDescriptionSource
+    from launch_ros.actions import Node
+    from launch_ros.substitutions import FindPackageShare
+
+    def generate_launch_description():
+        return LaunchDescription([
+            # Start Gazebo with world
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource([
+                    FindPackageShare('gazebo_simulation'),
+                    '/launch/spawn_robot.launch.py'
+                ]),
+                launch_arguments={
+                    'world': 'maze.sdf',
+                    'use_sim_time': 'True'
+                }.items()
+            ),
+        
+            # Wait for robot to spawn
+            TimerAction(
+                period=5.0,
+                actions=[
+                    # Start navigation stack
+                    IncludeLaunchDescription(
+                        PythonLaunchDescriptionSource([
+                            FindPackageShare('robot_navigation'),
+                            '/launch/navigation/navigation_stack.launch.py'
+                        ]),
+                        launch_arguments={
+                            'use_sim_time': 'True',
+                            'map': FindPackageShare('robot_navigation') + '/maps/maze/maze.yaml',
+                            'autostart': 'True'
+                        }.items()
+                    )
+                ]
+            ),
+        
+            # Start teleop for manual control (optional)
+            TimerAction(
+                period=10.0,
+                actions=[
+                    Node(
+                        package='teleop_twist_keyboard',
+                        executable='teleop_twist_keyboard',
+                        name='teleop',
+                        prefix='xterm -e',
+                        remappings=[('/cmd_vel', '/robot/cmd_vel')]
+                    )
+                ]
+            )
+        ])
+
+
+Exercise 3: SLAM - Simultaneous Localization and Mapping
