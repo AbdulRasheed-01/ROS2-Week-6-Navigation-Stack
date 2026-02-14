@@ -218,5 +218,28 @@ Exercise 1: Basic Nav2 Setup with TurtleBot3
           y: 0.5
         orientation:
           w: 1.0"
+1.3 Visualize Navigation in RViz:
 
+    #Launch RViz with Nav2 configuration
+    rviz2 -d /opt/ros/humble/share/nav2_bringup/rviz/nav2_default_view.rviz
+
+    #Add displays:
+    # - Map: Topic /map
+    # - RobotModel: Description Topic /robot_description
+    # - Path: Topic /plan
+    # - Pose: Topic /amcl_pose
+    # - LaserScan: Topic /scan
           
+    #Launch RViz with Nav2 configuration
+    rviz2 -d /opt/ros/humble/share/nav2_bringup/rviz/nav2_default_view.rviz
+
+    #Add displays:
+    # - Map: Topic /map
+    # - RobotModel: Description Topic /robot_description
+    # - Path: Topic /plan
+    # - Pose: Topic /amcl_pose
+    # - LaserScan: Topic /scan
+
+Exercise 2: Create Custom Navigation Robot
+2.1 Create Robot Description with Nav2 Configuration:
+
