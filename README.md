@@ -57,6 +57,7 @@ Cost Values:
 
 6.2 Planners Comparison
 
+
 Planner	    |               Type	         |           Best For	          |      Pros	        |    Cons
 
 Navfn	    |               Global	         |           Simple environments  | 	 Fast, stable	|    No dynamic reconfig
