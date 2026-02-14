@@ -53,3 +53,21 @@ Cost Values:
     253    ← Inscribed (Robot footprint collides)
     254    ← Lethal (Direct collision)
     255    ← No information
+
+
+6.2 Planners Comparison
+
+Planner	    |               Type	         |           Best For	          |      Pros	        |    Cons
+
+Navfn	    |               Global	         |           Simple environments  | 	 Fast, stable	|    No dynamic reconfig
+
+Smac Planner |	            Global	         |           Complex environments |	     Optimal paths, |    2D/SE2	Slower
+
+Theta*	     |              Global	         |           Any-angle paths	  |      Shorter paths	|    More computation
+
+DWB	Local	 |              Differential drive	|        Configurable,        |      smooth	        |    Many parameters
+
+TEB	Local	 |              Car-like robots	    |        Time-optimal,        |      kinematics	    |    Oscillations
+
+Regulated Pure Pursuit |    Local	            |        General purpose	  |      Stable, simple	|    Less optimal
+
