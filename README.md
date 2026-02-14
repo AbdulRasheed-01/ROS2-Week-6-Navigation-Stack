@@ -160,12 +160,63 @@ Exercise 1: Basic Nav2 Setup with TurtleBot3
 
 1.1 Install TurtleBot3 Simulation:
 
-# Install TurtleBot3 packages
-sudo apt-get install ros-humble-turtlebot3-gazebo
-sudo apt-get install ros-humble-turtlebot3-navigation2
-sudo apt-get install ros-humble-turtlebot3-cartographer
-sudo apt-get install ros-humble-turtlebot3-teleop
+    #Install TurtleBot3 packages
+    sudo apt-get install ros-humble-turtlebot3-gazebo
+    sudo apt-get install ros-humble-turtlebot3-navigation2
+    sudo apt-get install ros-humble-turtlebot3-cartographer
+    sudo apt-get install ros-humble-turtlebot3-teleop
 
-# Set TurtleBot3 model
-echo "export TURTLEBOT3_MODEL=burger" >> ~/.bashrc
-source ~/.bashrc
+    #Set TurtleBot3 model
+    echo "export TURTLEBOT3_MODEL=burger" >> ~/.bashrc
+    source ~/.bashrc
+1.2 Test Navigation with TurtleBot3:
+
+    #Terminal 1: Launch TurtleBot3 in Gazebo
+    ros2 launch turtlebot3_gazebo turtlebot3_world.launch.py
+
+    #Terminal 2: Launch Nav2 stack
+    ros2 launch turtlebot3_navigation2 navigation2.launch.py \
+        use_sim_time:=True \
+        map:=/opt/ros/humble/share/turtlebot3_navigation2/map/turtlebot3_world.yaml
+
+    #Terminal 3: Set initial pose
+    ros2 topic pub /initialpose geometry_msgs/msg/PoseWithCovarianceStamped "
+    header:
+      frame_id: map
+    pose:
+      pose:
+        position:
+          x: -2.0
+          y: -0.5
+      covariance: [0.1, 0, 0, 0, 0, 0,
+                   0, 0.1, 0, 0, 0, 0,
+                   0, 0, 0.1, 0, 0, 0,
+                   0, 0, 0, 0.1, 0, 0,
+                   0, 0, 0, 0, 0.1, 0,
+                   0, 0, 0, 0, 0, 0.1]"
+
+    #Terminal 4: Send navigation goal
+    ros2 topic pub /goal_pose geometry_msgs/msg/PoseStamped "
+    header:
+      frame_id: map
+    pose:
+      position:
+        x: 2.0
+        y: 1.0
+      orientation:
+        w: 1.0"
+
+    #Terminal 5: View navigation status
+    ros2 topic echo /navigation_velocity_smoother/parameter_events
+    ros2 action send_goal /navigate_to_pose nav2_msgs/action/NavigateToPose "
+    pose:
+      header:
+        frame_id: map
+      pose:
+        position:
+          x: 2.0
+          y: 0.5
+        orientation:
+          w: 1.0"
+
+          
