@@ -728,5 +728,204 @@ Create config/localization/ekf.yaml:
                                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0,
                                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.01, 0.0,
                                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.02]
+2.4 Nav2 Launch File:
 
+Create launch/navigation/navigation_stack.launch.py:
+
+    from launch import LaunchDescription
+    from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, TimerAction
+    from launch.conditions import IfCondition, UnlessCondition
+    from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+    from launch.launch_description_sources import PythonLaunchDescriptionSource
+    from launch_ros.actions import Node
+    from launch_ros.substitutions import FindPackageShare
+    import os
+
+    def generate_launch_description():
+        # Package directories
+        pkg_navigation = FindPackageShare('robot_navigation')
+        pkg_gazebo_sim = FindPackageShare('gazebo_simulation')
     
+        # Launch configurations
+        use_sim_time = LaunchConfiguration('use_sim_time', default='True')
+        map_yaml_file = LaunchConfiguration('map', default='')
+        autostart = LaunchConfiguration('autostart', default='True')
+        params_file = LaunchConfiguration('params_file', default='')
+    
+        # Declare launch arguments
+        declare_use_sim_time_cmd = DeclareLaunchArgument(
+            'use_sim_time',
+            default_value='True',
+            description='Use simulation (Gazebo) clock if true'
+        )
+    
+        declare_map_yaml_cmd = DeclareLaunchArgument(
+            'map',
+            default_value=PathJoinSubstitution([
+                pkg_navigation, 'maps', 'warehouse', 'warehouse.yaml'
+            ]),
+            description='Full path to map yaml file'
+        )
+    
+        declare_params_file_cmd = DeclareLaunchArgument(
+            'params_file',
+            default_value=PathJoinSubstitution([
+                pkg_navigation, 'config', 'nav2_params', 'navigation_params.yaml'
+            ]),
+            description='Full path to the ROS2 parameters file to use'
+        )
+    
+        declare_autostart_cmd = DeclareLaunchArgument(
+            'autostart',
+            default_value='True',
+            description='Automatically startup the nav2 stack'
+        )
+    
+        # Map server
+        map_server_node = Node(
+            package='nav2_map_server',
+            executable='map_server',
+            name='map_server',
+            output='screen',
+            parameters=[{'use_sim_time': use_sim_time,
+                         'yaml_filename': map_yaml_file}]
+        )
+    
+        # AMCL
+        amcl_node = Node(
+            package='nav2_amcl',
+            executable='amcl',
+            name='amcl',
+            output='screen',
+            parameters=[params_file, {'use_sim_time': use_sim_time}]
+        )
+    
+        # Controller server
+        controller_server_node = Node(
+            package='nav2_controller_server',
+            executable='controller_server',
+            name='controller_server',
+            output='screen',
+            parameters=[params_file, {'use_sim_time': use_sim_time}]
+        )
+    
+        # Planner server
+        planner_server_node = Node(
+            package='nav2_planner',
+            executable='planner_server',
+            name='planner_server',
+            output='screen',
+            parameters=[params_file, {'use_sim_time': use_sim_time}]
+        )
+    
+        # Behavior server
+        behavior_server_node = Node(
+            package='nav2_behaviors',
+            executable='behavior_server',
+            name='behavior_server',
+            output='screen',
+            parameters=[params_file, {'use_sim_time': use_sim_time}]
+        )
+    
+        # BT Navigator
+        bt_navigator_node = Node(
+            package='nav2_bt_navigator',
+            executable='bt_navigator',
+            name='bt_navigator',
+            output='screen',
+            parameters=[params_file, {'use_sim_time': use_sim_time}]
+        )
+    
+        # Waypoint follower
+        waypoint_follower_node = Node(
+            package='nav2_waypoint_follower',
+            executable='waypoint_follower',
+            name='waypoint_follower',
+            output='screen',
+            parameters=[params_file, {'use_sim_time': use_sim_time}]
+        )
+    
+        # Velocity smoother
+        velocity_smoother_node = Node(
+            package='nav2_velocity_smoother',
+            executable='velocity_smoother',
+            name='velocity_smoother',
+            output='screen',
+            parameters=[params_file, {'use_sim_time': use_sim_time}]
+        )
+    
+        # Lifecycle manager
+        lifecycle_manager_node = Node(
+            package='nav2_lifecycle_manager',
+            executable='lifecycle_manager',
+            name='lifecycle_manager_navigation',
+            output='screen',
+            parameters=[{'use_sim_time': use_sim_time,
+                         'autostart': autostart,
+                         'node_names': [
+                             'map_server',
+                             'amcl',
+                             'planner_server',
+                             'controller_server',
+                             'behavior_server',
+                             'bt_navigator',
+                             'waypoint_follower',
+                             'velocity_smoother'
+                         ]}]
+        )
+    
+        # Robot localization (EKF)
+        ekf_node = Node(
+            package='robot_localization',
+            executable='ekf_node',
+            name='ekf_filter_node',
+            output='screen',
+            parameters=[PathJoinSubstitution([
+                pkg_navigation, 'config', 'localization', 'ekf.yaml'
+            ]), {'use_sim_time': use_sim_time}]
+        )
+    
+        # RViz with Nav2 plugins
+        rviz_config_file = PathJoinSubstitution([
+            pkg_navigation, 'config', 'navigation.rviz'
+        ])
+    
+        rviz_node = Node(
+            package='rviz2',
+            executable='rviz2',
+            name='rviz2',
+            arguments=['-d', rviz_config_file],
+            parameters=[{'use_sim_time': use_sim_time}],
+            condition=IfCondition(LaunchConfiguration('use_rviz', default='True'))
+        )
+    
+        # Static TF for map->odom (will be overwritten by AMCL)
+        static_tf_node = Node(
+            package='tf2_ros',
+            executable='static_transform_publisher',
+            name='static_tf_pub',
+            arguments=['0', '0', '0', '0', '0', '0', 'map', 'odom']
+        )
+    
+        return LaunchDescription([
+            declare_use_sim_time_cmd,
+            declare_map_yaml_cmd,
+            declare_params_file_cmd,
+            declare_autostart_cmd,
+        
+            map_server_node,
+            amcl_node,
+            controller_server_node,
+            planner_server_node,
+            behavior_server_node,
+            bt_navigator_node,
+            waypoint_follower_node,
+            velocity_smoother_node,
+            lifecycle_manager_node,
+            ekf_node,
+            rviz_node,
+            static_tf_node
+        ])
+    
+2.5 Integration with Gazebo:
+
